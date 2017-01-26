@@ -84,21 +84,34 @@ function gotRemoteIceCandidate(event) {
 function start_stream() {
    
   
-navigator.mediaDevices.getUserMedia(constraints).then(handleSuccess_local).catch(handleError); 
-
+navigator.mediaDevices.getUserMedia({ video: true }, gotStream, function(error) {
+    trace('navigator.getUserMedia error: ', error);
+  }); 
 //:this for local connection
   localPeerConnection = new RTCPeerConnection(servers);  // eslint-disable-line new-cap
   trace('Created local peer connection object localPeerConnection');
   localPeerConnection.onicecandidate = gotLocalIceCandidate;
-
 //:this for remote connection
-
   remotePeerConnection =   new RTCPeerConnection(servers);  // eslint-disable-line new-cap
   trace('Created remote peer connection object remotePeerConnection');
-
   remotePeerConnection.onicecandidate = gotRemoteIceCandidate;
   remotePeerConnection.onTrack = gotRemoteStream;
 
+
+  localPeerConnection.addStream(localStream);
+  trace('Added localStream to localPeerConnection');
+  localPeerConnection.createOffer(gotLocalDescription);
+
+
+
+}
+
+
+function gotStream(stream) {
+  trace('Received local stream');
+  local_stream_video.src = URL.createObjectURL(stream);
+  localStream = stream;
+//  callButton.disabled = false;
 }
 
 

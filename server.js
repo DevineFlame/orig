@@ -47,6 +47,8 @@ function logTo(conn){
 	socket.on('deny_permission',deny_permit);
 	socket.on('disconnect_user',disconnect_user);
 	socket.on('exit_user',exit_user);
+
+	socket.on('candidate',exit_user);
 /////////////////////////////////functions/////////////////////////////////
 	
 

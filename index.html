@@ -16,13 +16,15 @@
             <code id="url">...</code>
         </p>
 
-        <video class="camera" id="local_stream" autoplay></video>
+        <video class="camera" id="local_video_stream" autoplay></video>
+         <video class="camera" id="remote_video_stream" autoplay></video>
         <div class="controls">
          
         <span><input type="text" name="username" id="username"><button id="connect">connect</button></span>
       <span>   <input type="text" name="room_id" id="room_id" placeholder="enter the caller name">    <button id="join_room">join</button></span>
 
-            <p>
+            <p>   <button id="start_stream">start stream</button>
+                  <button id="stop_stream">stop stream</button>
                 <button id="create_room">create</button>
                 <button id="disconnect_btn">disconnect</button>
                  <button id="exit_btn">exit</button>
@@ -30,7 +32,7 @@
                
             </p>
         </div>
-
+<p id="errorMsg"></p>
         <div class="incoming">
             <h2>Incoming photos</h2>
             <div id="trail"></div>
