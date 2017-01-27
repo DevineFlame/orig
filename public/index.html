@@ -1,0 +1,58 @@
+
+<html>
+    <head>
+        <meta name="keywords" content="JavaScript, WebRTC" />
+        <meta name="description" content="WebRTC codelab" />
+        <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1">
+        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+        <title>WebRTC codelab: step X</title>
+        <link rel="stylesheet" href="css/main.css">
+    </head>
+    <body>
+        <h1>WebRTC codelab: step X</h1>
+
+        <p>
+            Room URL: <br>
+            <code id="url">...</code>
+        </p>
+
+        <video class="camera" id="local_video_stream" autoplay></video>
+        <div id="remote_peers">
+             <video class="camera" id="remote_video_stream_1" autoplay></video>
+               <video class="camera" id="remote_video_stream_2" autoplay></video>
+                 <video class="camera" id="remote_video_stream_3" autoplay></video>
+                   <video class="camera" id="remote_video_stream_4" autoplay></video>
+                     <video class="camera" id="remote_video_stream_5" autoplay></video>
+        </div>
+         <div id="remote_rooms">
+            
+        </div>
+         <video class="camera" id="remote_video_stream" autoplay></video>
+        <div class="controls">
+         
+     
+        </div>
+<p id="errorMsg"></p>
+        <div class="incoming">
+
+           <span><input type="text" name="username" id="username"><button id="connect">connect</button></span>
+      <span>   <input type="text" name="room_id" id="room_id" placeholder="enter the caller name">    <button id="join_room">join</button></span>
+
+            <p>   <button id="start_stream">start stream</button>
+                  <button id="stop_stream">stop stream</button>
+                <button id="create_room">create</button>
+                <button id="disconnect_btn">disconnect</button>
+                 <button id="exit_btn">exit</button>
+            
+               
+            </p>
+            <h2>Incoming photos</h2>
+            <div id="trail"></div>
+        </div>
+        <script src="js/jquery.min.js"></script>
+        <script src="/socket.io/socket.io.js"></script>
+        <script src="js/lib/adapter.js"></script>
+        <script src="js/main.js"></script>
+
+    </body>
+</html>

@@ -1,198 +1,97 @@
+var express = require('express');
 var os = require('os');
 var static = require('node-static');
 var http = require('http');
-var socketIO = require('socket.io');
-
-var port=2013;
-var fileServer = new(static.Server)();
-var app = http.createServer(function (req, res) {
-  fileServer.serve(req, res);
-}).listen(port);
-
-var io = socketIO.listen(app);
-//socket.broadcast.to(otherSocket.id).emit('hello', msg);
-
-var rooms=[];
-var peers=[];
-var users=[];
-var clients=[];
-var socket_id=[];
-
-var address="http://localhost:"+port+"?";
-
-io.sockets.on('connection', function (socket){
-
-    // convenience function to log server messages on the client
-    function log(){
-		var array = [">>> Message from server:"];
-        array.push.apply(array, arguments);
-	    socket.emit('log', array);
-	}
-function logTo(conn){
-		var array = [">>> Message from server:"];
-        array.push.apply(array, arguments);
-	    conn.emit('log', array);
-	}
-
-	socket.on('message', function (message) {
-		log('Client said:', message);
-        // for a real app, would be room only (not broadcast)
-		socket.broadcast.emit('message', message);
-	});
-////////////////////////////////////calls to server/////////////////////////////////
-	socket.on('connect',connect_user);
-	socket.on('create_room',create_room);
-	socket.on('join_room',join_room);
-	socket.on('grant_permission',grant_permit);
-	socket.on('deny_permission',deny_permit);
-	socket.on('disconnect_user',disconnect_user);
-	socket.on('exit_user',exit_user);
-
-	socket.on('candidate',exit_user);
-/////////////////////////////////functions/////////////////////////////////
-	
-
-	function disconnect_user(data){
-   
-         var user=data.name;
-         var room=data.room;
-
-         if(rooms[room]){
-         	socket.leave(room);
-         	var creator=rooms[room];
-         	log("user "+user+" leaved "+room+" created by "+creator);
-         	 io.sockets.in(creator).emit("user_leave",{'peer':user,'room':room,'creator':creator});
-         }
-     else{
-       log("you are not connected to anyone");
-     }
-
-	}
-
-	function exit_user(data){
-		if(data){
-		var name=data.name;
-		var room=name;
-		var creator=rooms[room];
-		var user=name;
-
-		delete users[data.name];// jai shri ram jai bajarangbali;jai maa sharada ;jai maa kali
-		delete rooms[data.name];
-
-		io.sockets.in(room).emit("user_exit",{'peer':user,'room':room,'creator':creator});
-
-	}
-	}
-
-   function connect_user(data){
-   	var name=data.name;
-   
-   	if(socket_id[name]){
-   		socket.emit("user_exist");
-   	}else{
-
-   	 console.info('New client connected (id=' + socket.id + ').');
-     clients.push(socket);
-	
-   	 users[name]=name;         // till he not create this is default room
-   	 socket_id[name]=socket.id;
-   	 socket.join(name);
-   	 socket.emit("connected");
-   	 
-     }
-   }
+var path = require('path');
+var favicon = require('static-favicon');
+var logger = require('morgan');
+var cookieParser = require('cookie-parser');
+var bodyParser = require('body-parser');
+var session = require('express-session');
+var minimist = require('minimist');
+var url = require('url');
+var fs    = require('fs');
+var https = require('https');
+var socket_server=require('./websocket_server');
 
 
-	function create_room(data){
-		var room=data.room;
-		var user=data.user;
-		 //io.sockets.in(user)
-	
-		log('client said make rooom -->',data.user,data.room);
-		if(rooms[data.room]){
-			log('sorry make some another room',data.user);
-		}
-		else{
-			log('hurray your  room is',data.room);
-			rooms[data.room]=data.user;
-			users[user]=data.room;          // here change the room that can be changed till now it is the usename
-					
-			//console.log(users[data.name]);
-			log(data.user+"creates "+data.room);
-			socket.join(room);
-			address=address+room;
-			 socket.emit('room_created', address);
-		}
-	}
+var routes = require('./routes/index');
 
-	function join_room(data){
-		var room=data.room;
-		var user=data.user;
+var app = express();
 
-		log('client asked for rooom -->',data.user,rooms[room]);
-		if(users[data.user]){
-			log("user still exist");
-		}
-		if(rooms[room]){
 
-			log('yah bro room is available room.initiator is ',rooms[room]);
-			var creator=rooms[room];
-			
-			socket.join(creator);
-			//console.log(socket_id.length);
-			//console.log("room created by "+socket_id[creator]);
-			
-			//io.sockets.in(creator).emit("test_me",{"user":creator,"room":room});
-			notifyRoomCreator(user,room,creator,"join");  //notify the creator that user wants to join you 
+// view engine setup
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'ejs');
 
-		}
-		else{
-			log("soory bro room is not live");
-		}
-	}
+app.use(favicon());
+app.use(logger('dev'));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded());
+app.use(cookieParser());
+app.use(express.static(path.join(__dirname, 'public')));
 
 
 
-function notifyRoomCreator(curr_pear,room,creator,type){
-	if(type==="leave"){
-			log(curr_pear+"wants to leave room "+room+"started by"+creator);
-			removePearFromRoom(curr_pear,room,creator);
-		}
-    else if(type=="join"){
-    	  	log(curr_pear+"wants to join room "+room+"started by"+creator);
-    	  	addPearToRoom(curr_pear,room,creator);
-	     	//io.sockets.in('rdyrx').emit('get_permit',{'peer':curr_pear});  // get permission from user who created room
-	     //	io.sockets.in('rdyx').emit('peer_connected_to_room',{'peer':curr_pear,'creator':creator,'room':room});
-	    	
-    }
-}
-
-function addPearToRoom(curr_pear,room,creator){
-        
-            // push  the user in the peer connection       
-        log("here is room -->",room);
-       // io.sockets.in(creator).emit('peer_connected_to_room',{'peer':curr_pear,'room':room,'creator':creator} );
-        io.sockets.in(creator).emit("peer_connected_to_room",{'peer':curr_pear,'room':room,'creator':creator});
-       
-
-}
-function removePearFromRoom(curr_pear,room,room_init){
-
-}
+app.use(bodyParser());
 
 
+app.use(cookieParser());
+
+app.use(session({
+    secret: '2C44-4D44-WppQ38S',
+    resave: true,
+    saveUninitialized: true
+}));
+
+app.use('/', routes);
+
+var argv = minimist(process.argv.slice(2), {
+  default: {
+      as_uri: "https://localhost:2013/",
+      ws_uri: "ws://localhost:8888/rdy"
+  }
 });
 
+var options =
+{
+  key:  fs.readFileSync('keys/server.key'),
+  cert: fs.readFileSync('keys/server.crt')
+};
 
+/*
 
-function grant_permit(data){
-log("permission_ granted  to"+data.peer+"created by:"+data.user+"room->"+data.room);
-curr_pear=data.peer;
-room=data.room;
-room_init=data.room_init;
-addPearToRoom(curr_pear,room,room_init);
+ * Definition of global variables.
+ */
+
+var pipelines = {};
+var candidatesQueue = {};
+var idCounter = 0;
+
+function nextUniqueId() {
+    idCounter++;
+    return idCounter.toString();
 }
 
-function deny_permit(data){
-socket.emit("permission_denied",data);
-}
+
+
+/*
+ * Server startup
+ */
+
+var asUrl = url.parse(argv.as_uri);
+var port = asUrl.port;
+var server = https.createServer(options, app).listen(port, function() {
+    console.log('rdy server started');
+    console.log('Open ' + url.format(asUrl) + ' with a WebRTC capable browser');
+});
+
+/*
+
+var fileServer = new(static.Server)();
+var server = http.createServer(function (req, res) {
+  fileServer.serve(req, res);
+}).listen(2013);
+*/
+
+socket_server(server);
