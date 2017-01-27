@@ -16,6 +16,7 @@ var remotePeerConnection;
 var yourConn;
 var peercount=0;
 var roomcount=0;
+var peerConnection={};
 
 var mediaConstraints = {
   audio: true,            // We want an audio track
@@ -45,7 +46,7 @@ var  pc = new RTCPeerConnection(servers);
 ////////////////////////////////////////////////////connect//////////////////////////////////
 
 //var conn = new WebSocket('wss://' + location.host + '/rdy');
-log('wss://' + location.host + '/rdy');
+//log('wss://' + location.host + '/rdy');
 var socket = io.connect();
 // {"url":"stun:stun.services.mozilla.com"}
 ////////////////////////////////////////////////////////BUTTONS//////////////////////////////////
@@ -62,7 +63,7 @@ var socket = io.connect();
 connect_btn.addEventListener('click',fresh_connect);
 create_btn.addEventListener('click',start_room);
 join_btn.addEventListener('click',join_room);
-disconnect_btn.addEventListener('click',disconnect_user);
+disconnect_btn.addEventListener('click',disconnect_me);
 exit_btn.addEventListener('click',exit);
 start_stream_btn.addEventListener('click',start_stream);
 stop_stream_btn.addEventListener('click',stop_stream);
@@ -136,30 +137,57 @@ function remove_local_stream(stream){
 
 function show_remote_stream(var_obj,stream,type){
   if(type=='peer'){            // stream for connected peers
-      media_id=peers[var_obj];
+      log(peercount);
+      media_id='remote_video_stream_'+peercount;
+      remoteStream[var_obj]=document.getElementById(media_id);
       media_id='#'+media_id;
-      alert(media_id);
-      var remote_video=document.getElementById(media_id);
-     remote_video.srcObject = stream;
-      remoteStream[var_obj]=stream;
+      $(media_id).removeClass("hide").addClass("show");
+      
+      remoteStream[var_obj].srcObject = window.URL.createObjectURL(stream);
+      //remoteStream[var_obj]=stream;
     }
-    else if(type=="room"){                 // stream for rooms
-     media_id=rooms[var_obj];
+
+}
+
+function remove_remote_stream(var_obj,type){  // here var_obj is the peer who is connected to our room
+   
+  if(type=='peer'){            // stream for connected peers
+    
+      log(peercount);
+
+      media_id='remote_video_stream_'+peers[var_obj];  // peers[var_obj]  stores the peer count not good especially
+      remoteStream[var_obj]=document.getElementById(media_id);
       media_id='#'+media_id;
-      alert(media_id);
-      var remote_video=document.getElementById(media_id);
-      remote_video.srcObject = stream;
-      remoteStream[var_obj]=stream;
-     // attachMediaStream(remote_video, stream);
-    }
+      $(media_id).removeClass("show").addClass("hide");
+     remoteStream[var_obj].srcObject=null; 
+     socket.emit("disconnect_room_user",{'user':var_obj,'room':room,'creator':user});// disconnect the user from this room orderd by server
+     }
+
 }
 
 
-function remove_remote_stream(peer,stream){
-     media_id=peers[peer];
-     var remote_video=document.getElementById('#'+media_id);      
-       remoteStream[peer]=null;
-     
+function show_remote_room(stream){
+  var remote_video=document.getElementById('remote_video_stream');
+      remote_video.srcObject = stream;
+}
+
+function remove_remote_room(){
+  var remote_video=document.getElementById('remote_video_stream');
+      remote_video.srcObject = null;
+}
+
+
+
+function disconnect_me(){
+    if(room){
+       remove_remote_room();
+        remoteStream=null;
+        socket.emit('disconnect_user',{"name":user,"room":room});
+}
+else{
+    log("you are not connected to any room");
+}
+
 }
 
 
@@ -182,23 +210,41 @@ if(first_time){
          // setup stream listening 
          yourConn.addStream(localStream); 
          show_local_stream(localStream);
-
-         /*
-      
-         yourConn.createOffer(function (offer) { 
-        log("sender of offer is :"+user);
-         socket.emit("offer",{'offer':offer,'user':user,'room':room});
-         yourConn.setLocalDescription(offer); 
-         
-         show_local_stream(localStream);
-
-      }, function (error) { 
-         alert("Error when creating an offer"); 
-      });
-
-
-*/
+    
    }  
+
+
+
+function stop_stream() {       // disconnect all users from our room 
+
+for(var key in peers){
+ var val=peers[key];
+ log("key:"+key+"->val:"+val);
+ remove_remote_stream(key,"peer");            // disconeect this user from our room
+ if(peercount>=1)
+ peercount--;
+
+ }
+
+ //socket.emit("room_closed",{'user':user,'room':room});
+
+}
+
+socket.on('disconnect_room_user',function(data){       // get the disconnect message and leave the room
+  if(user==data.user){
+  remove_remote_room();
+  remoteStream=null;
+  socket.emit('leave_room',{'user':data.user,'room':room,'creator':data.creator});
+  log("succesfully disconnected from room: "+ data.room);
+
+}
+
+
+});
+
+
+
+
   
 function generate_remote_peer_area(media_id){         // for peers
   var video_elem=" <video class='camera' id='"+media_id+"' autoplay></video>";
@@ -206,33 +252,23 @@ function generate_remote_peer_area(media_id){         // for peers
 }
 
 
-function generate_remote_room_area(media_id){         /// for rooms 
-  var video_elem=" <video class='camera' id='"+media_id+"' autoplay></video>";
-  $("#remote_rooms").append(video_elem);
-}
-
 
 
 function connect_new_peer(new_peer){         // this is for initiator
-  if(first_time){
- navigator.getUserMedia({ video: true, audio: true }, function (stream) { 
-         localStream = stream;
-       },
-  function (error) { 
-         console.log(error); 
-      }); 
-}
-  peercount++;
-  var media_id=new_peer+"_"+peercount.toString();
-  peers[new_peer]=media_id ;                 // add that new_pear to our connection
-  generate_remote_peer_area(media_id);
-  
- 
-
+      if(first_time){
+           navigator.getUserMedia({ video: true, audio: true }, function (stream) { 
+                   localStream = stream;
+                 },
+            function (error) { 
+                   console.log(error); 
+                }); 
+          }
 
     var configuration = { 
             "iceServers": []
          }; 
+
+
          yourConn = new RTCPeerConnection(configuration);          
          // setup stream listening 
          yourConn.addStream(localStream); 
@@ -254,11 +290,6 @@ function connect_new_peer(new_peer){         // this is for initiator
 
 function connect_to_room(new_room){        // this is for peers
   
-   roomcount++;
-  var media_id=new_room+"_"+roomcount.toString();
-  rooms[new_room]=media_id ;                 // add that new_pear to our connection
-  generate_remote_room_area(media_id);
-  
   var configuration = { 
             "iceServers": []
          }; 
@@ -276,7 +307,7 @@ function connect_to_room(new_room){        // this is for peers
           show_local_stream(localStream);
 
       }, function (error) { 
-         alert("Error when creating an offer"); 
+         //alert("Error when creating an offer"); 
       });
 
            yourConn.onicecandidate = function (event) { 
@@ -286,7 +317,7 @@ function connect_to_room(new_room){        // this is for peers
          }; 
            yourConn.ontrack = function(event) {
           // document.getElementById("remote_video_stream").srcObject = event.streams[0];
-          show_remote_stream(new_room,event.streams[0],"room");
+          show_remote_room(event.streams[0]);
          // document.getElementById("hangup-button").disabled = false;
         }; 
 
@@ -305,9 +336,13 @@ function join_stream() {
 socket.on('peer_connected_to_room',function(data){
   if(user == data.creator){
     log("peer :"+data.peer+"connected to your room:"+data.room);
+    if(peercount<4){          /// max allowed user is 4 for current 
+     peercount++;   
+    
+    peers[data.peer]=peercount ;                // add that new_pear to our connection  
     connect_new_peer(data.peer);    // connect newly coming peer
 
-    
+    }
   }
   else if(user == data.peer){
    // init();
@@ -333,7 +368,7 @@ socket.on('offer',function(data){
       socket.emit('answer',{'answer':answer,'creator':creator,'user':user,'room':curr_room });
       
    }, function (error) { 
-      alert("Error when creating an answer"); 
+      //alert("Error when creating an answer"); 
    }); 
 
 });
@@ -341,15 +376,15 @@ socket.on('offer',function(data){
 socket.on('user_leave',function(data){         //function which decide who is going to leave
 
     if(user==data.peer){
-  log("user "+data.peer+"leaved from "+data.room+"created by"+data.creator);
-   //remove_remote_stream(remoteStream);
+     log("user "+data.peer+"leaved from "+data.room+"created by"+data.creator);
+   //  remove_remote_stream(data.peeer,"peer");
   
    
    }
 
  if(user==data.creator){
   log("user "+data.peer+"leaved from "+data.room+"created by you mr."+data.creator);
- remove_remote_stream(data.peer,remoteStream); 
+ remove_remote_stream(data.peer,"peer"); 
   // yourConn.onicecandidate = null;
 }
 
@@ -374,31 +409,12 @@ socket.on('candidate',function(data){
 });
 //////////////////////////////////////////////////////////////////////////////////////////
 
-function stop_stream() {
-   remove_local_stream(localStream);
-}
-
-
-
-
 
 
 ////////////////////////////////////////////////////////////functions definitions socket related///////////////////////////////////
 function exit(){
 log("you are leaving");
 socket.emit("exit_user",{'name':user});
-
-}
-
-function disconnect_user(){
-    if(room){
-    log("disconnect "+user+" from room-->"+room);
-    
-    socket.emit('disconnect_user',{"name":user,"room":room});
-}
-else{
-    log("you are not connected to any room");
-}
 
 }
 

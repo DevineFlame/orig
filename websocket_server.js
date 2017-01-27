@@ -8,11 +8,11 @@ function webrtc(server){
 
 var io = require('socket.io').listen(server);
 
-var rooms=[];
-var peers=[];
-var users=[];
-var clients=[];
-var socket_id=[];
+var rooms=new Object();
+var peers=new Object();
+var users=new Object();
+var clients=new Object();
+var socket_id=new Object();
 
 io.sockets.on('connection', function (socket){
 
@@ -41,6 +41,8 @@ function logTo(conn){
     socket.on('deny_permission',deny_permit);
     socket.on('disconnect_user',disconnect_user);
     socket.on('exit_user',exit_user);
+     socket.on('disconnect_room_user',disconnect_room_user);
+      socket.on('leave_room',leave_room);
 
     socket.on('offer',handle_offer);
     socket.on('answer',handle_answer);
@@ -80,6 +82,25 @@ function logTo(conn){
 
 
 ///////////////////////////////////////////functions for socketx///////////////////////////////////////////
+function leave_room(data){
+    if(data.room){
+    socket.leave(data.room);
+    log("successfully disconnected");
+
+  }
+}
+
+function disconnect_room_user(data){
+
+     var user=data.user;
+     var room=data.room;
+     log("sending leave request to user :"+user+" to leave room :"+room+"created by "+data.creator);
+     socket.broadcast.to(room).emit('disconnect_room_user',{'user':data.user,'creator':data.creator,'room':room});
+     
+
+}
+
+
     function disconnect_user(data){
    
          var user=data.name;
@@ -103,12 +124,16 @@ function logTo(conn){
         var room=name;
         var creator=rooms[room];
         var user=name;
-
+        socket.leave(name);
         delete users[data.name];// jai shri ram jai bajarangbali;jai maa sharada ;jai maa kali
         delete rooms[data.name];
+        delete socket_id[data.name];
 
         io.sockets.in(room).emit("user_exit",{'peer':user,'room':room,'creator':creator});
 
+    }
+    else{
+        log("user is not here to exit");
     }
     }
 
@@ -120,7 +145,7 @@ function logTo(conn){
     }else{
 
      console.info('New client connected (id=' + socket.id + ').');
-     clients.push(socket);
+     //clients.push(socket);
     
      users[name]=name;         // till he not create this is default room
      socket_id[name]=socket.id;
